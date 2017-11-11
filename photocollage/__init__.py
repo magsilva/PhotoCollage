@@ -17,6 +17,7 @@
 
 APP_NAME = "photocollage"
 APP_VERSION = "1.4.4"
+DEV_TAG = "- daily build"
 
 __author__ = "Adrien Vergé"
 __copyright__ = "Copyright 2013, Adrien Vergé"
