@@ -171,6 +171,7 @@ class PhotoCollageWindow(Gtk.Window):
                 self.out_w = 800
                 self.out_h = 600
                 self.quality = QUALITY_FAST
+                self.last_visited_dir = os.path.expanduser('~')
 
         self.opts = Options()
 
@@ -264,6 +265,10 @@ class PhotoCollageWindow(Gtk.Window):
         self.update_photolist([])
 
     def update_photolist(self, new_images):
+        if new_images:
+            self.opts.last_visited_dir = os.path.dirname(
+                os.path.abspath(new_images[-1])
+            )
         try:
             photolist = []
             if self.history_index < len(self.history):
@@ -285,11 +290,13 @@ class PhotoCollageWindow(Gtk.Window):
             dialog.destroy()
 
     def choose_images(self, button):
-        dialog = PreviewFileChooserDialog(title=_("Choose images"),
-                                          parent=button.get_toplevel(),
-                                          action=Gtk.FileChooserAction.OPEN,
-                                          select_multiple=True,
-                                          modal=True)
+        dialog = PreviewFileChooserDialog(
+            title=_("Choose images"),
+            folder=self.opts.last_visited_dir,
+            parent=button.get_toplevel(),
+            action=Gtk.FileChooserAction.OPEN,
+            select_multiple=True,
+            modal=True)
 
         if dialog.run() == Gtk.ResponseType.OK:
             files = dialog.get_filenames()
@@ -813,7 +820,9 @@ class PreviewFileChooserDialog(Gtk.FileChooserDialog):
     PREVIEW_MAX_SIZE = 256
 
     def __init__(self, **kw):
+        folder = kw.pop('folder', '.')
         super(PreviewFileChooserDialog, self).__init__(**kw)
+        self.set_current_folder(folder)
 
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
