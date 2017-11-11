@@ -26,13 +26,14 @@ import PIL.ImageDraw
 from photocollage import APP_NAME
 from photocollage.collage import Photo
 
+
 gettext.textdomain(APP_NAME)
 _ = gettext.gettext
 _n = gettext.ngettext
 
-QUALITY_SKEL = 1
-QUALITY_FAST = 2
-QUALITY_BEST = 3
+QUALITY_SKEL = 0
+QUALITY_FAST = 1
+QUALITY_BEST = 2
 QUALITIES = {
     QUALITY_SKEL: {'str': _("Skeleton (no rendering)"),
                    'filter': None},
