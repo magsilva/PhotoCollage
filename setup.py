@@ -93,7 +93,7 @@ distutils.core.setup(
     ],
 
     packages=["photocollage"],
-    scripts=["bin/photocollage"],
+    scripts=["bin/photocollage", "bin/photocollage-cli"],
     data_files=[
         ("share/applications", ["data/photocollage.desktop"]),
         ("share/appdata", ["data/photocollage.appdata.xml"]),
