@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2013 Adrien Vergé
+# Copyright (C) 2019 Vikas Chouhan
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,12 +17,8 @@
 
 import copy
 import math
-import os.path
 import random
 import sys
-
-from six.moves import urllib  # Python 2 backward compatibility
-
 from photocollage import collage, render
 
 class UserCollage(object):
@@ -57,10 +53,6 @@ class UserCollage(object):
         for photo in self.photolist:
             self.page.add_cell(photo)
         self.page.adjust()
-
-    def duplicate(self):
-        return UserCollage(copy.copy(self.photolist))
-
 
 class PhotoCollage(object):
     def __init__(self, image_list, border_w=0.01, border_c='black', out_w=800, out_r=1.0):
