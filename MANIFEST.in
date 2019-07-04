@@ -7,3 +7,4 @@ recursive-include data/icons/hicolor *
 include po/POTFILES.in
 recursive-include po *.po
 include setup.py
+include bin/photocollage-cli
