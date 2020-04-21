@@ -27,7 +27,6 @@ import PIL.ImageFile
 from photocollage import APP_NAME
 from photocollage.collage import Photo
 
-
 gettext.textdomain(APP_NAME)
 _ = gettext.gettext
 _n = gettext.ngettext
