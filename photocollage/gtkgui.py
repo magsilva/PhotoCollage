@@ -35,6 +35,7 @@ from photocollage.config import YamlOptionsManager, OptionsLoadError
 from photocollage.render import PIL_SUPPORTED_EXTS as EXTS
 from photocollage.render import QUALITIES, QUALITY_FAST, QUALITY_BEST, QUALITY_SKEL
 
+
 gettext.textdomain(APP_NAME)
 _ = gettext.gettext
 _n = gettext.ngettext
@@ -184,7 +185,6 @@ class PhotoCollageWindow(Gtk.Window):
             pass
         # set default values
         self.opts.setdefault(**DEFAULT_OPTS)
-
         self.make_window()
 
     def make_window(self):
@@ -803,6 +803,17 @@ class SettingsDialog(Gtk.Dialog):
             res['quality'] = dict(self.qualities)[q]
 
         return res
+    
+    def apply_opts(self, opts):
+        opts.out_w = int(self.etr_outw.get_text() or '1')
+        opts.out_h = int(self.etr_outh.get_text() or '1')
+        opts.border_w = float(self.etr_border.get_text() or '0') / 100.0
+        opts.border_c = self.colorbutton.get_rgba().to_string()
+        # TODO: test following line; not sure it works that easily.
+        q = self.cmb_quality.get_model()[
+            self.cmb_quality.get_active_iter()][1]
+        if q:
+            opts.quality = dict(self.qualities)[q]
 
 
 class ComputingDialog(Gtk.Dialog):
