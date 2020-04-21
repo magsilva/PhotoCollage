@@ -347,7 +347,10 @@ class Column(object):
         for group in groups:
             if not group.cells:
                 continue
-            alpha = group.h / sum(c.h for c in group.cells)
+            try:
+                alpha = group.h / sum(c.h for c in group.cells)
+            except ZeroDivisionError:
+                alpha = 1
             for c in group.cells:
                 c.h = c.h * alpha
 
