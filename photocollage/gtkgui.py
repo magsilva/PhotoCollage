@@ -33,9 +33,7 @@ from six.moves import urllib  # Python 2 backward compatibility
 from photocollage import APP_NAME, DEV_TAG, artwork, collage, render
 from photocollage.config import YamlOptionsManager, OptionsLoadError
 from photocollage.render import PIL_SUPPORTED_EXTS as EXTS
-from photocollage.render import QUALITIES, QUALITY_FAST, QUALITY_BEST,\
-    QUALITY_SKEL
-
+from photocollage.render import QUALITIES, QUALITY_FAST, QUALITY_BEST, QUALITY_SKEL
 
 gettext.textdomain(APP_NAME)
 _ = gettext.gettext
@@ -174,8 +172,7 @@ class PhotoCollageWindow(Gtk.Window):
             persistence at exit.
 
         """
-        super(PhotoCollageWindow, self).__init__(
-            title=_("PhotoCollage %s") % DEV_TAG)
+       super(PhotoCollageWindow, self).__init__(title=_("PhotoCollage"))
         self.history = []
         self.history_index = 0
 
@@ -899,7 +896,6 @@ def main():
     options_fn = os.path.join(options_dir, 'photocollage', 'options.yml')
     options_manager = YamlOptionsManager(opts_fn=options_fn)
     logging.debug(_("Config filename: '%s'") % options_fn)
-
     win = PhotoCollageWindow(options_manager=options_manager)
     win.connect("delete-event", win.on_destroy)
     win.show_all()
