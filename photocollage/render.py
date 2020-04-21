@@ -257,23 +257,22 @@ class RenderingTask(Thread):
             cache[cell.photo.filename] = img
 
         if shape > 0:  # image is too thick
-            width_to_crop = img.size[0] - cell.w
-            img = img.crop((
-                int(round(width_to_crop * cell.photo.offset_w)),
-                0,
-                int(round(img.size[0] - width_to_crop *
-                    (1 - cell.photo.offset_w))),
-                int(round(cell.h))
-            ))
+           default_offset_x = (img.size[0] - cell.w) / 2
+            offset_x = max(0, min(cell.offset_x +
+                                  default_offset_x, img.size[0] - cell.w))
+            cell.offset_x = offset_x - default_offset_x
+
+            img = img.crop((int(round(offset_x)), 0,
+                            int(round(offset_x + cell.w)), int(round(cell.h))))
         elif shape < 0:  # image is too tall
-            height_to_crop = img.size[1] - cell.h
-            img = img.crop((
-                0,
-                int(round(height_to_crop * cell.photo.offset_h)),
-                int(round(cell.w)),
-                int(round(img.size[1] - height_to_crop *
-                    (1 - cell.photo.offset_h)))
-            ))
+            default_offset_y = (img.size[1] - cell.h) / 2
+            offset_y = max(0, min(cell.offset_y +
+                                  default_offset_y, img.size[1] - cell.h))
+            cell.offset_y = offset_y - default_offset_y
+
+            img = img.crop(
+                (0, int(round(offset_y)),
+                 int(round(cell.w)), int(round(offset_y + cell.h))))
 
         return img
 
