@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright (C) 2019 Vikas Chouhan
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+import argparse
+import sys
+import os
+import glob
+from   photocollage import cli
+
+supported_image_ext = ['*.jpg', '*.png', '*.jpeg', '*.bmp', '*.tiff']
+supported_image_ext = [x.upper() for x in supported_image_ext] + supported_image_ext
+
+def search_for_images(image_dir):
+    file_list = []
+    for ext_t in supported_image_ext:
+        file_list = file_list + ['{}/{}'.format(image_dir, x) for x in glob.glob1(image_dir, ext_t)]
+    # endfor
+    return file_list
+# enddef
+
+
+if __name__ == '__main__':
+    parser  = argparse.ArgumentParser()
+    parser.add_argument('--output-file',      help='Output file',                        type=str, default=None)
+    parser.add_argument('--input-dir',        help='Input Directory.',                   type=str, default=None)
+    parser.add_argument('--output-width',     help='Output image width',                 type=int, default=800)
+    parser.add_argument('--aspect-ratio',     help='Output image aspect ratio.',         type=float, default=1.0)
+    parser.add_argument('--border-color',     help='Border color',                       type=str, default='black')
+    parser.add_argument('--border-width',     help='Border width',                       type=int, default=0.01)
+    args    = parser.parse_args()
+
+    if args.__dict__['output_file'] is None or args.__dict__['input_dir'] is None:
+        print('--output-file and --input-dir are mandatory.Please use --help for more information.')
+        sys.exit(-1)
+
+    output_file    = os.path.expanduser(args.__dict__['output_file'])
+    input_dir      = os.path.expanduser(args.__dict__['input_dir'])
+    border_color   = args.__dict__['border_color']
+    border_width   = args.__dict__['border_width']
+    output_ratio   = args.__dict__['aspect_ratio']
+    output_width   = args.__dict__['output_width']
+
+    image_list     = search_for_images(input_dir)
+    if len(image_list) <= 0:
+        print('No images found in {}'.format(input_dir))
+        sys.exit(-1)
+
+    collageobj     = cli.PhotoCollage(image_list, border_w=border_width, border_c=border_color, out_w=output_width,
+                         out_r=output_ratio)
+    collageobj.save_collage(output_file)
