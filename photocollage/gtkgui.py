@@ -174,7 +174,7 @@ class PhotoCollageWindow(Gtk.Window):
             persistence at exit.
 
         """
-       super(PhotoCollageWindow, self).__init__(title=_("PhotoCollage"))
+        super(PhotoCollageWindow, self).__init__(title=_("PhotoCollage"))
         self.history = []
         self.history_index = 0
 
@@ -488,7 +488,7 @@ class PhotoCollageWindow(Gtk.Window):
 
 class ImagePreviewArea(Gtk.DrawingArea):
     """Area to display the poster preview and react to user actions"""
-    INSENSITIVE, FLYING, SWAPPING, MODIFY_PICTURE_OFFSET = range(4)
+    INSENSITIVE, FLYING, SWAPPING_OR_MOVING, MODIFY_PICTURE_OFFSET = range(4)
 
     def __init__(self, parent):
         super(ImagePreviewArea, self).__init__()

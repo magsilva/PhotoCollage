@@ -257,7 +257,7 @@ class RenderingTask(Thread):
             cache[cell.photo.filename] = img
 
         if shape > 0:  # image is too thick
-           default_offset_x = (img.size[0] - cell.w) / 2
+            default_offset_x = (img.size[0] - cell.w) / 2
             offset_x = max(0, min(cell.offset_x +
                                   default_offset_x, img.size[0] - cell.w))
             cell.offset_x = offset_x - default_offset_x
