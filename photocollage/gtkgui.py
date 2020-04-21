@@ -18,6 +18,7 @@
 import copy
 import gettext
 from io import BytesIO
+import logging
 import math
 import os.path
 import random
@@ -29,8 +30,11 @@ gi.require_version('Gtk', '3.0')  # noqa: E402
 from gi.repository import Gtk, Gdk, GObject, GdkPixbuf  # noqa: I202
 from six.moves import urllib  # Python 2 backward compatibility
 
-from photocollage import APP_NAME, artwork, collage, render
+from photocollage import APP_NAME, DEV_TAG, artwork, collage, render
+from photocollage.config import YamlOptionsManager, OptionsLoadError
 from photocollage.render import PIL_SUPPORTED_EXTS as EXTS
+from photocollage.render import QUALITIES, QUALITY_FAST, QUALITY_BEST,\
+    QUALITY_SKEL
 
 
 gettext.textdomain(APP_NAME)
@@ -39,6 +43,11 @@ _n = gettext.ngettext
 # xgettext --keyword=_n:1,2 -o po/photocollage.pot $(find . -name '*.py')
 # cp po/photocollage.pot po/fr.po
 # msgfmt -o po/fr.mo po/fr.po
+
+DEFAULT_OPTS = dict(border_w=0.01, border_c='black', out_w=800, out_h=600,
+                    quality=QUALITY_FAST,
+                    last_visited_dir=None,
+                    last_output_dir=None)
 
 
 def pil_image_to_cairo_surface(src):
@@ -126,9 +135,9 @@ class UserCollage(object):
     def __init__(self, photolist):
         self.photolist = photolist
 
-    def make_page(self, opts):
+    def make_page(self, out_h, out_w):
         # Define the output image height / width ratio
-        ratio = 1.0 * opts.out_h / opts.out_w
+        ratio = 1.0 * out_h / out_w
 
         # Compute a good number of columns. It depends on the ratio, the number
         # of images and the average ratio of these images. According to my
@@ -157,26 +166,35 @@ class PhotoCollageWindow(Gtk.Window):
     TARGET_TYPE_TEXT = 1
     TARGET_TYPE_URI = 2
 
-    def __init__(self):
-        super(PhotoCollageWindow, self).__init__(title=_("PhotoCollage"))
+    def __init__(self, options_manager):
+        """
+
+        :param options_manager: dict-like storage for configuration data.
+            Shall also accept function `store`, that takes care of data
+            persistence at exit.
+
+        """
+        super(PhotoCollageWindow, self).__init__(
+            title=_("PhotoCollage %s") % DEV_TAG)
         self.history = []
         self.history_index = 0
 
-        class Options(object):
-            def __init__(self):
-                self.border_w = 0.01
-                self.border_c = "black"
-                self.out_w = 800
-                self.out_h = 600
-
-        self.opts = Options()
+        self.opts = options_manager
+        # load if options_manager file exists
+        try:
+            self.opts.load()
+        except OptionsLoadError:
+            pass
+        # set default values
+        self.opts.setdefault(**DEFAULT_OPTS)
 
         self.make_window()
 
     def make_window(self):
         self.set_border_width(10)
 
-        box_window = Gtk.Box(spacing=10, orientation=Gtk.Orientation.VERTICAL)
+        box_window = Gtk.Box(spacing=10,
+                             orientation=Gtk.Orientation.VERTICAL)
         self.add(box_window)
 
         # -----------------------
@@ -261,6 +279,10 @@ class PhotoCollageWindow(Gtk.Window):
         self.update_photolist([])
 
     def update_photolist(self, new_images):
+        if new_images:
+            self.opts.last_visited_dir = os.path.dirname(
+                os.path.abspath(new_images[-1])
+            )
         try:
             photolist = []
             if self.history_index < len(self.history):
@@ -270,7 +292,8 @@ class PhotoCollageWindow(Gtk.Window):
 
             if len(photolist) > 0:
                 new_collage = UserCollage(photolist)
-                new_collage.make_page(self.opts)
+                new_collage.make_page(out_h=self.opts.out_h,
+                                      out_w=self.opts.out_w)
                 self.render_from_new_collage(new_collage)
             else:
                 self.update_tool_buttons()
@@ -282,11 +305,13 @@ class PhotoCollageWindow(Gtk.Window):
             dialog.destroy()
 
     def choose_images(self, button):
-        dialog = PreviewFileChooserDialog(title=_("Choose images"),
-                                          parent=button.get_toplevel(),
-                                          action=Gtk.FileChooserAction.OPEN,
-                                          select_multiple=True,
-                                          modal=True)
+        dialog = PreviewFileChooserDialog(
+            title=_("Choose images"),
+            folder=self.opts.last_visited_dir,
+            parent=button.get_toplevel(),
+            action=Gtk.FileChooserAction.OPEN,
+            select_multiple=True,
+            modal=True)
 
         if dialog.run() == Gtk.ResponseType.OK:
             files = dialog.get_filenames()
@@ -310,8 +335,8 @@ class PhotoCollageWindow(Gtk.Window):
     def render_preview(self):
         collage = self.history[self.history_index]
 
-        # If the desired ratio changed in the meantime (e.g. from landscape to
-        # portrait), it needs to be re-updated
+        # If the desired ratio changed in the meantime (e.g. from landscape
+        # to portrait), it needs to be re-updated
         collage.page.target_ratio = 1.0 * self.opts.out_h / self.opts.out_w
         collage.page.adjust_cols_heights()
 
@@ -344,6 +369,7 @@ class PhotoCollageWindow(Gtk.Window):
             border_width=self.opts.border_w * max(collage.page.w,
                                                   collage.page.h),
             border_color=self.opts.border_c,
+            quality=QUALITY_FAST,  # for preview, use NEAREST
             on_update=gtk_run_in_main_thread(on_update),
             on_complete=gtk_run_in_main_thread(on_complete),
             on_fail=gtk_run_in_main_thread(on_fail))
@@ -362,7 +388,8 @@ class PhotoCollageWindow(Gtk.Window):
 
     def regenerate_layout(self, button=None):
         new_collage = self.history[self.history_index].duplicate()
-        new_collage.make_page(self.opts)
+        new_collage.make_page(out_h=self.opts.out_h,
+                              out_w=self.opts.out_w)
         self.render_from_new_collage(new_collage)
 
     def select_prev_layout(self, button):
@@ -379,7 +406,7 @@ class PhotoCollageWindow(Gtk.Window):
         dialog = SettingsDialog(self)
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            dialog.apply_opts(self.opts)
+            self.opts.update(**dialog.retrieve_opts())
             dialog.destroy()
             if self.history:
                 self.render_preview()
@@ -392,10 +419,13 @@ class PhotoCollageWindow(Gtk.Window):
         enlargement = float(self.opts.out_w) / collage.page.w
         collage.page.scale(enlargement)
 
-        dialog = Gtk.FileChooserDialog(_("Save image"), button.get_toplevel(),
+        dialog = Gtk.FileChooserDialog(_("Save image"),
+                                       button.get_toplevel(),
                                        Gtk.FileChooserAction.SAVE)
         dialog.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         dialog.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
+        if self.opts.last_output_dir is not None:
+            dialog.set_current_folder(self.opts.last_output_dir)
         dialog.set_do_overwrite_confirmation(True)
         set_save_image_filters(dialog)
         if dialog.run() != Gtk.ResponseType.OK:
@@ -403,6 +433,7 @@ class PhotoCollageWindow(Gtk.Window):
             return
         savefile = dialog.get_filename()
         base, ext = os.path.splitext(savefile)
+        self.opts.last_output_dir = os.path.abspath(base)
         if ext == "" or not ext[1:].lower() in get_all_save_image_exts():
             savefile += ".jpg"
         dialog.destroy()
@@ -427,6 +458,7 @@ class PhotoCollageWindow(Gtk.Window):
             collage.page, output_file=savefile,
             border_width=self.opts.border_w * max(collage.page.w,
                                                   collage.page.h),
+            quality=self.opts.quality,  # for saving, use user setting
             border_color=self.opts.border_c,
             on_update=gtk_run_in_main_thread(on_update),
             on_complete=gtk_run_in_main_thread(on_complete),
@@ -449,6 +481,11 @@ class PhotoCollageWindow(Gtk.Window):
             self.history_index < len(self.history))
         self.btn_new_layout.set_sensitive(
             self.history_index < len(self.history))
+
+    def on_destroy(self, widget=None, *args):
+        """Handles window closure properly"""
+        self.opts.store()
+        Gtk.main_quit()
 
 
 class ImagePreviewArea(Gtk.DrawingArea):
@@ -585,7 +622,8 @@ class ImagePreviewArea(Gtk.DrawingArea):
             if dist <= 8 * 8:
                 self.collage.photolist.remove(cell.photo)
                 if self.collage.photolist:
-                    self.collage.make_page(self.parent.opts)
+                    self.collage.make_page(out_h=self.parent.opts.out_h,
+                                           out_w=self.parent.opts.out_w)
                     self.parent.render_from_new_collage(self.collage)
                 else:
                     self.image = None
@@ -714,6 +752,29 @@ class SettingsDialog(Gtk.Dialog):
 
         vbox.pack_start(Gtk.SeparatorToolItem(), True, True, 0)
 
+        label = Gtk.Label(xalign=0)
+        label.set_markup("<big><b>%s</b></big>" % _("Image quality"))
+        vbox.pack_start(label, False, False, 0)
+
+        box = Gtk.Box(spacing=6)
+        vbox.pack_start(box, False, False, 0)
+        label = Gtk.Label(_("Resizing method:"), xalign=1)
+        box.pack_start(label, False, False, 0)
+
+        self.qualities = (
+            (QUALITIES[QUALITY_SKEL]['str'], QUALITY_SKEL),
+            (QUALITIES[QUALITY_FAST]['str'], QUALITY_FAST),
+            (QUALITIES[QUALITY_BEST]['str'], QUALITY_BEST),
+        )
+
+        self.cmb_quality = Gtk.ComboBoxText()
+        for q, r in self.qualities:
+            self.cmb_quality.append(q, q)
+        self.cmb_quality.set_active(parent.opts.quality)
+        box.pack_end(self.cmb_quality, False, False, 0)
+
+        vbox.pack_start(Gtk.SeparatorToolItem(), True, True, 0)
+
         self.show_all()
 
     def validate_int(self, entry):
@@ -732,11 +793,19 @@ class SettingsDialog(Gtk.Dialog):
         except ValueError:
             entry.set_text(entry.last_valid_text)
 
-    def apply_opts(self, opts):
-        opts.out_w = int(self.etr_outw.get_text() or '1')
-        opts.out_h = int(self.etr_outh.get_text() or '1')
-        opts.border_w = float(self.etr_border.get_text() or '0') / 100.0
-        opts.border_c = self.colorbutton.get_rgba().to_string()
+    def retrieve_opts(self):
+        res = dict(
+            out_w=int(self.etr_outw.get_text() or '1'),
+            out_h=int(self.etr_outh.get_text() or '1'),
+            border_w=float(self.etr_border.get_text() or '0') / 100.0,
+            border_c=self.colorbutton.get_rgba().to_string())
+        # try to retrieve quality
+        q = self.cmb_quality.get_model()[
+            self.cmb_quality.get_active_iter()][1]
+        if q:
+            res['quality'] = dict(self.qualities)[q]
+
+        return res
 
 
 class ComputingDialog(Gtk.Dialog):
@@ -778,8 +847,10 @@ class ErrorDialog(Gtk.Dialog):
 class PreviewFileChooserDialog(Gtk.FileChooserDialog):
     PREVIEW_MAX_SIZE = 256
 
-    def __init__(self, **kw):
+    def __init__(self, folder=None, **kw):
         super(PreviewFileChooserDialog, self).__init__(**kw)
+        if folder is not None:
+            self.set_current_folder(folder)
 
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
@@ -814,11 +885,23 @@ class PreviewFileChooserDialog(Gtk.FileChooserDialog):
 
 
 def main():
+    # set level for logging
+    logging.basicConfig(level=logging.INFO)
+
     # Enable threading. Without that, threads hang!
     GObject.threads_init()
 
-    win = PhotoCollageWindow()
-    win.connect("delete-event", Gtk.main_quit)
+    # #38: adding config file
+    if 'XDG_CONFIG_HOME' in os.environ:
+        options_dir = os.environ['XDG_CONFIG_HOME']
+    else:
+        options_dir = os.path.join(os.path.expanduser('~'), '.config')
+    options_fn = os.path.join(options_dir, 'photocollage', 'options.yml')
+    options_manager = YamlOptionsManager(opts_fn=options_fn)
+    logging.debug(_("Config filename: '%s'") % options_fn)
+
+    win = PhotoCollageWindow(options_manager=options_manager)
+    win.connect("delete-event", win.on_destroy)
     win.show_all()
 
     # If arguments are given, treat them as input images
